@@ -46,6 +46,18 @@ def get_pipeline():
     import torch
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 
+    # Download model als het nog niet in cache staat
+    cache_dir = os.environ.get("HY3DGEN_MODELS", "/opt/models")
+    model_local = os.path.join(cache_dir, "tencent/Hunyuan3D-2.1/hunyuan3d-dit-v2-1/config.yaml")
+
+    if not os.path.exists(model_local):
+        print("[handler] Model niet in cache, downloaden via HuggingFace...")
+        from huggingface_hub import hf_hub_download
+        for fname in ["hunyuan3d-dit-v2-1/model.fp16.ckpt", "hunyuan3d-dit-v2-1/config.yaml"]:
+            hf_hub_download("tencent/Hunyuan3D-2.1", fname,
+                           local_dir=os.path.join(cache_dir, "tencent/Hunyuan3D-2.1"))
+        print("[handler] Model gedownload!")
+
     _pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
         "tencent/Hunyuan3D-2.1",
         device="cuda",
