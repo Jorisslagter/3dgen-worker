@@ -30,10 +30,10 @@ import sys
 import time
 import tempfile
 
-# Voeg Hunyuan3D toe aan path
-sys.path.insert(0, "/opt/hunyuan3d/hy3dshape/hy3dshape")
-sys.path.insert(0, "/opt/hunyuan3d/hy3dshape")
-sys.path.insert(0, "/opt/hunyuan3d")
+# Voeg Hunyuan3D toe aan path (de .pth file doet dit ook, maar voor de zekerheid)
+for p in ["/opt/hunyuan3d", "/opt/hunyuan3d/hy3dshape"]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
 
 # Cache de pipeline globaal (persistent tussen requests op dezelfde worker)
 _pipeline = None
