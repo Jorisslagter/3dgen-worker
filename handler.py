@@ -31,6 +31,7 @@ import time
 import tempfile
 
 # Voeg Hunyuan3D toe aan path
+sys.path.insert(0, "/opt/hunyuan3d/hy3dshape/hy3dshape")
 sys.path.insert(0, "/opt/hunyuan3d/hy3dshape")
 sys.path.insert(0, "/opt/hunyuan3d")
 
