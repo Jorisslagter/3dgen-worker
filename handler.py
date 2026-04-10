@@ -30,10 +30,9 @@ import sys
 import time
 import tempfile
 
-# Voeg Hunyuan3D toe aan path (de .pth file doet dit ook, maar voor de zekerheid)
-for p in ["/opt/hunyuan3d", "/opt/hunyuan3d/hy3dshape"]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
+# Voeg Hunyuan3D toe aan path
+# Officiele repo: package = hy3dgen, import = hy3dgen.shapegen.pipelines
+sys.path.insert(0, "/opt/hunyuan3d")
 
 # Cache de pipeline globaal (persistent tussen requests op dezelfde worker)
 _pipeline = None
@@ -45,7 +44,7 @@ def get_pipeline():
         return _pipeline
 
     import torch
-    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
+    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 
     model_path = "/opt/models/hunyuan3d-2.1"
     if not os.path.exists(model_path):
@@ -81,7 +80,7 @@ def handler(job):
 
     # Achtergrond verwijderen
     try:
-        from hy3dshape.rembg import BackgroundRemover
+        from hy3dgen.shapegen.rembg import BackgroundRemover
         rembg = BackgroundRemover()
         image = rembg(image)
     except Exception:

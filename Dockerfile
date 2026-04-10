@@ -9,11 +9,8 @@ RUN pip install --no-cache-dir runpod trimesh fast-simplification pillow \
 # Clone Hunyuan3D
 RUN git clone --depth 1 https://github.com/Tencent-Hunyuan/Hunyuan3D-2 /opt/hunyuan3d
 
-# Installeer hy3dshape dependencies (sommige falen, dat is OK)
-RUN pip install --no-cache-dir -r /opt/hunyuan3d/hy3dshape/requirements.txt || true
-
-# Voeg hy3dshape toe aan Python path via .pth
-RUN echo "/opt/hunyuan3d/hy3dshape" > /usr/local/lib/python3.11/dist-packages/hy3dshape.pth
+# Installeer Hunyuan3D als package
+RUN cd /opt/hunyuan3d && pip install --no-cache-dir -e . || pip install --no-cache-dir -r requirements.txt || true
 
 # Pre-download model weights (baked in voor snelle cold start)
 RUN python -c "import hf_xet; from huggingface_hub import hf_hub_download; hf_hub_download('tencent/Hunyuan3D-2.1', 'hunyuan3d-dit-v2-1/model.fp16.ckpt', local_dir='/opt/models/hunyuan3d-2.1'); hf_hub_download('tencent/Hunyuan3D-2.1', 'hunyuan3d-dit-v2-1/config.yaml', local_dir='/opt/models/hunyuan3d-2.1')"
