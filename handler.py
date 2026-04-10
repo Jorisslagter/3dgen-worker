@@ -46,12 +46,8 @@ def get_pipeline():
     import torch
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 
-    model_path = "/opt/models/hunyuan3d-2.1"
-    if not os.path.exists(model_path):
-        model_path = "tencent/Hunyuan3D-2.1"
-
     _pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-        model_path,
+        "tencent/Hunyuan3D-2.1",
         device="cuda",
         dtype=torch.float16,
     )
