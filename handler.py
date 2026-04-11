@@ -55,11 +55,15 @@ def get_pipeline():
                     print(f"[handler] Found: {fp} ({os.path.getsize(fp)} bytes)")
             raise FileNotFoundError(f"Model download mislukt: {ckpt_path}")
 
-    # Stap 2: Laad pipeline
+    # Stap 2: Laad pipeline via from_single_file (omzeilt smart_load_model)
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
 
-    _pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
-        "tencent/Hunyuan3D-2.1",
+    config_path = os.path.join(model_dir, "config.yaml")
+    print(f"[handler] Loading from: ckpt={ckpt_path}, config={config_path}")
+
+    _pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_single_file(
+        ckpt_path=ckpt_path,
+        config_path=config_path,
         device="cuda",
         dtype=torch.float16,
     )
