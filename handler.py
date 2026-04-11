@@ -21,26 +21,26 @@ def get_pipeline():
 
     import torch
 
-    # Stap 1: Zorg dat het model in de HY3DGEN cache staat
+    # Stap 1: Download model naar HY3DGEN_MODELS cache
     cache_dir = os.environ.get("HY3DGEN_MODELS", os.path.expanduser("~/.cache/hy3dgen"))
-    model_dir = os.path.join(cache_dir, "tencent/Hunyuan3D-2.1/hunyuan3d-dit-v2-1")
+    model_dir = os.path.join(cache_dir, "tencent/Hunyuan3D-2.1", "hunyuan3d-dit-v2-1")
     ckpt_path = os.path.join(model_dir, "model.fp16.ckpt")
 
-    print(f"[handler] Cache dir: {cache_dir}")
-    print(f"[handler] Model dir: {model_dir}")
-    print(f"[handler] Ckpt exists: {os.path.exists(ckpt_path)}")
-
     if not os.path.exists(ckpt_path):
-        print("[handler] Model niet gevonden, downloaden via snapshot_download...")
-        os.makedirs(cache_dir, exist_ok=True)
-        from huggingface_hub import snapshot_download
-        path = snapshot_download(
-            repo_id="tencent/Hunyuan3D-2.1",
-            allow_patterns=["hunyuan3d-dit-v2-1/*"],
-            local_dir=os.path.join(cache_dir, "tencent/Hunyuan3D-2.1"),
-        )
-        print(f"[handler] Gedownload naar: {path}")
-        print(f"[handler] Ckpt exists nu: {os.path.exists(ckpt_path)}")
+        print(f"[handler] Model downloaden naar {model_dir}...")
+        os.makedirs(model_dir, exist_ok=True)
+
+        # Download via subprocess curl (meest betrouwbaar)
+        import subprocess
+        for fname, size in [("config.yaml", "2KB"), ("model.fp16.ckpt", "7GB")]:
+            src = f"https://huggingface.co/tencent/Hunyuan3D-2.1/resolve/main/hunyuan3d-dit-v2-1/{fname}"
+            dst = os.path.join(model_dir, fname)
+            if not os.path.exists(dst):
+                print(f"[handler] Downloading {fname} ({size})...")
+                subprocess.run(["curl", "-L", "-o", dst, src], check=True)
+                print(f"[handler] {fname}: {os.path.getsize(dst)} bytes")
+
+        print(f"[handler] Model download klaar!")
 
     # Stap 2: Laad pipeline
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
