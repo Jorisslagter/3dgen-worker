@@ -27,20 +27,24 @@ def get_pipeline():
     ckpt_path = os.path.join(model_dir, "model.fp16.ckpt")
 
     if not os.path.exists(ckpt_path):
-        print(f"[handler] Model downloaden naar {model_dir}...")
-        os.makedirs(model_dir, exist_ok=True)
-
-        # Download via subprocess curl (meest betrouwbaar)
+        print(f"[handler] Model downloaden naar {cache_dir}...")
         import subprocess
-        for fname, size in [("config.yaml", "2KB"), ("model.fp16.ckpt", "7GB")]:
-            src = f"https://huggingface.co/tencent/Hunyuan3D-2.1/resolve/main/hunyuan3d-dit-v2-1/{fname}"
-            dst = os.path.join(model_dir, fname)
-            if not os.path.exists(dst):
-                print(f"[handler] Downloading {fname} ({size})...")
-                subprocess.run(["curl", "-L", "-o", dst, src], check=True)
-                print(f"[handler] {fname}: {os.path.getsize(dst)} bytes")
 
-        print(f"[handler] Model download klaar!")
+        clone_dir = os.path.join(cache_dir, "tencent/Hunyuan3D-2.1")
+        if not os.path.exists(os.path.join(clone_dir, ".git")):
+            os.makedirs(cache_dir, exist_ok=True)
+            # Sparse clone + LFS pull voor alleen het model bestand
+            subprocess.run([
+                "git", "clone", "--depth", "1", "--filter=blob:none", "--sparse",
+                "https://huggingface.co/tencent/Hunyuan3D-2.1", clone_dir
+            ], check=True)
+            subprocess.run(["git", "sparse-checkout", "set", "hunyuan3d-dit-v2-1"], cwd=clone_dir, check=True)
+            subprocess.run(["git", "lfs", "pull", "--include", "hunyuan3d-dit-v2-1/*"], cwd=clone_dir, check=True)
+
+        if os.path.exists(ckpt_path):
+            print(f"[handler] Model gedownload: {os.path.getsize(ckpt_path)/(1024**3):.1f} GB")
+        else:
+            raise FileNotFoundError(f"Model download mislukt: {ckpt_path} niet gevonden")
 
     # Stap 2: Laad pipeline
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
