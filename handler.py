@@ -41,10 +41,19 @@ def get_pipeline():
             subprocess.run(["git", "sparse-checkout", "set", "hunyuan3d-dit-v2-1"], cwd=clone_dir, check=True)
             subprocess.run(["git", "lfs", "pull", "--include", "hunyuan3d-dit-v2-1/*"], cwd=clone_dir, check=True)
 
+        # Debug: toon wat er in de directory staat
+        import subprocess
+        subprocess.run(["find", clone_dir, "-type", "f", "-name", "*.ckpt", "-o", "-name", "*.yaml"], check=False)
+
         if os.path.exists(ckpt_path):
             print(f"[handler] Model gedownload: {os.path.getsize(ckpt_path)/(1024**3):.1f} GB")
         else:
-            raise FileNotFoundError(f"Model download mislukt: {ckpt_path} niet gevonden")
+            # Misschien staat het ergens anders?
+            for root, dirs, files in os.walk(clone_dir):
+                for f in files:
+                    fp = os.path.join(root, f)
+                    print(f"[handler] Found: {fp} ({os.path.getsize(fp)} bytes)")
+            raise FileNotFoundError(f"Model download mislukt: {ckpt_path}")
 
     # Stap 2: Laad pipeline
     from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline

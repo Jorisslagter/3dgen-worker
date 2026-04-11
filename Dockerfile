@@ -1,7 +1,7 @@
 FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1
-ENV HY3DGEN_MODELS=/runpod-volume/models
+ENV HY3DGEN_MODELS=/tmp/hy3dgen_models
 
 # Git LFS voor model download + RunPod SDK + mesh tools
 RUN apt-get update && apt-get install -y git-lfs && git lfs install && rm -rf /var/lib/apt/lists/*
