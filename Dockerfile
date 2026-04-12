@@ -22,18 +22,31 @@ RUN pip install --no-cache-dir runpod trimesh fast-simplification pillow \
     diffusers transformers accelerate huggingface-hub \
     xatlas pybind11 scipy realesrgan basicsr
 
-# Clone Hunyuan3D (broncode + hy3dpaint, zonder CUDA compilatie)
+# Force CUDA arch list (geen GPU nodig tijdens build)
+ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
+ENV FORCE_CUDA=1
+
+# nvdiffrast (NVIDIA differentiable rasterizer)
+RUN pip install --no-cache-dir git+https://github.com/NVlabs/nvdiffrast.git
+
+# Clone Hunyuan3D (broncode + hy3dpaint)
 RUN git clone --depth 1 https://github.com/Tencent-Hunyuan/Hunyuan3D-2 /opt/hunyuan3d && \
     cd /opt/hunyuan3d && pip install --no-cache-dir -e . || pip install --no-cache-dir -r requirements.txt || true
 
-# nvdiffrast en CUDA extensions worden bij eerste opstart gecompileerd
-# (vereist runtime GPU, kan niet tijdens docker build op macOS)
+# Compileer custom_rasterizer CUDA extension
+RUN cd /opt/hunyuan3d/hy3dpaint/custom_rasterizer && \
+    pip install --no-cache-dir -e .
+
+# Compileer mesh_inpaint_processor C++ extension
+RUN cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
+    g++ -O3 -Wall -shared -std=c++11 -fPIC \
+        $(python3 -m pybind11 --includes) \
+        mesh_inpaint_processor.cpp \
+        -o mesh_inpaint_processor$(python3-config --extension-suffix)
 
 COPY handler.py /opt/handler.py
-COPY startup.sh /opt/startup.sh
-RUN chmod +x /opt/startup.sh
 
-# Model wordt bij eerste request gedownload via huggingface_hub
+# Model wordt bij eerste request gedownload
 # Paint model (~7GB) wordt bij eerste texture request gedownload
 
-CMD ["/opt/startup.sh"]
+CMD ["python", "/opt/handler.py"]
