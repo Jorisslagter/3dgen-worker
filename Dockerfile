@@ -64,15 +64,17 @@ RUN cd /opt/hunyuan3d/hy3dpaint/custom_rasterizer && \
 
 # Compileer mesh_inpaint_processor C++ extension (verplicht voor texture pipeline)
 RUN set -e && cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
-    which g++ && which python3-config && which python3 && \
-    INCLUDES="$(python3 -m pybind11 --includes)" && \
-    SUFFIX="$(python3-config --extension-suffix || echo '.so')" && \
-    echo "Compiling: includes=$INCLUDES, suffix=$SUFFIX" && \
+    which g++ && which python3.11 && python3.11 --version && \
+    INCLUDES="$(python3.11 -m pybind11 --includes)" && \
+    SUFFIX="$(python3.11-config --extension-suffix)" && \
+    echo "Compiling with python3.11: includes=$INCLUDES, suffix=$SUFFIX" && \
     g++ -O3 -Wall -shared -std=c++14 -fPIC \
         $INCLUDES \
         mesh_inpaint_processor.cpp \
         -o "mesh_inpaint_processor$SUFFIX" && \
-    ls -la mesh_inpaint_processor*.so
+    ls -la mesh_inpaint_processor*.so && \
+    python3.11 -c "from DifferentiableRenderer import mesh_inpaint_processor as m; print('verify:', dir(m))" \
+        || (cd .. && python3.11 -c "from DifferentiableRenderer import mesh_inpaint_processor as m; print('verify:', dir(m))")
 
 COPY handler.py /opt/handler.py
 
