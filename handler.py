@@ -109,16 +109,19 @@ def get_paint_pipeline():
         print(f"[handler] torchvision_fix niet beschikbaar: {e}")
 
     # Diagnose: probeer mesh_inpaint_processor expliciet te importeren
+    import glob, traceback, platform
+    diag = []
+    diag.append(f"python={platform.python_version()}")
+    sos = glob.glob("/opt/hunyuan3d/hy3dpaint/DifferentiableRenderer/mesh_inpaint_processor*")
+    diag.append(f"files={sos}")
     try:
-        import glob
-        sos = glob.glob("/opt/hunyuan3d/hy3dpaint/DifferentiableRenderer/mesh_inpaint_processor*.so")
-        print(f"[handler] mesh_inpaint_processor .so bestanden: {sos}")
         from DifferentiableRenderer import mesh_inpaint_processor as _mip
-        print(f"[handler] mesh_inpaint_processor OK: {dir(_mip)}")
+        diag.append(f"import_ok: {[x for x in dir(_mip) if not x.startswith('_')]}")
     except Exception as e:
-        import traceback
-        print(f"[handler] mesh_inpaint_processor import FAILED: {e}")
-        traceback.print_exc()
+        diag.append(f"import_err={type(e).__name__}: {e}")
+        diag.append(traceback.format_exc()[-500:])
+    _mesh_inpaint_diag = " | ".join(diag)
+    print(f"[handler] {_mesh_inpaint_diag}")
 
     try:
         from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
@@ -285,8 +288,13 @@ def handler(job):
 
         except Exception as e:
             # Texture painting faalde, maar wit mesh is wel beschikbaar
-            result["texture_error"] = str(e)
-            print(f"[handler] Texture painting mislukt: {e}")
+            import traceback
+            tb = traceback.format_exc()
+            diag = globals().get("_mesh_inpaint_diag", "")
+            result["texture_error"] = f"{type(e).__name__}: {e}"
+            result["texture_diag"] = diag
+            result["texture_traceback"] = tb[-1500:]
+            print(f"[handler] Texture painting mislukt: {e}\n{tb}")
 
     # Cleanup wit mesh temp bestand
     try:
