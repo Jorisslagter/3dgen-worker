@@ -18,6 +18,7 @@ sys.path.insert(0, "/opt/hunyuan3d/hy3dpaint")
 
 _pipeline = None
 _paint_pipeline = None
+_mesh_inpaint_diag = ""
 
 
 def get_pipeline():
@@ -108,12 +109,14 @@ def get_paint_pipeline():
     except Exception as e:
         print(f"[handler] torchvision_fix niet beschikbaar: {e}")
 
-    # Diagnose: probeer mesh_inpaint_processor expliciet te importeren
+    # Diagnose + runtime injectie van meshVerticeInpaint in MeshRender
+    global _mesh_inpaint_diag
     import glob, traceback, platform
     diag = []
     diag.append(f"python={platform.python_version()}")
     sos = glob.glob("/opt/hunyuan3d/hy3dpaint/DifferentiableRenderer/mesh_inpaint_processor*")
     diag.append(f"files={sos}")
+    _mip = None
     try:
         from DifferentiableRenderer import mesh_inpaint_processor as _mip
         diag.append(f"import_ok: {[x for x in dir(_mip) if not x.startswith('_')]}")
@@ -122,6 +125,15 @@ def get_paint_pipeline():
         diag.append(traceback.format_exc()[-500:])
     _mesh_inpaint_diag = " | ".join(diag)
     print(f"[handler] {_mesh_inpaint_diag}")
+
+    # Als import lukt, forceer injectie in MeshRender module (die slikt ImportError stil)
+    if _mip is not None and hasattr(_mip, "meshVerticeInpaint"):
+        try:
+            from DifferentiableRenderer import MeshRender as _mr
+            _mr.meshVerticeInpaint = _mip.meshVerticeInpaint
+            print("[handler] meshVerticeInpaint geinjecteerd in MeshRender")
+        except Exception as e:
+            print(f"[handler] MeshRender injectie mislukt: {e}")
 
     try:
         from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
