@@ -108,6 +108,18 @@ def get_paint_pipeline():
     except Exception as e:
         print(f"[handler] torchvision_fix niet beschikbaar: {e}")
 
+    # Diagnose: probeer mesh_inpaint_processor expliciet te importeren
+    try:
+        import glob
+        sos = glob.glob("/opt/hunyuan3d/hy3dpaint/DifferentiableRenderer/mesh_inpaint_processor*.so")
+        print(f"[handler] mesh_inpaint_processor .so bestanden: {sos}")
+        from DifferentiableRenderer import mesh_inpaint_processor as _mip
+        print(f"[handler] mesh_inpaint_processor OK: {dir(_mip)}")
+    except Exception as e:
+        import traceback
+        print(f"[handler] mesh_inpaint_processor import FAILED: {e}")
+        traceback.print_exc()
+
     try:
         from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
     except ImportError as e:
