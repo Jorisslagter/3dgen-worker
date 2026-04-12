@@ -30,7 +30,8 @@ RUN pip install --no-cache-dir \
     onnxruntime==1.16.3 pydantic==2.10.6 \
     pybind11==2.13.4 ninja==1.11.1.1 \
     timm torchdiffeq pymeshlab pytorch-lightning==1.9.5 \
-    fast-simplification tqdm psutil pyyaml
+    fast-simplification tqdm psutil pyyaml \
+    bpy==4.0 open3d==0.18.0 configargparse
 
 # Force CUDA arch list (geen GPU nodig tijdens build)
 ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
