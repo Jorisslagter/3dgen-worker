@@ -18,7 +18,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Python dependencies: RunPod SDK + Hunyuan3D-2.1 core deps
-RUN pip install --no-cache-dir \
+# --ignore-installed omdat blinker 1.4 (distutils) niet te uninstallen is
+RUN pip install --no-cache-dir --ignore-installed blinker && \
+    pip install --no-cache-dir \
     runpod pillow \
     einops==0.8.0 omegaconf==2.3.0 \
     transformers==4.46.0 diffusers==0.30.0 accelerate==1.1.1 \
