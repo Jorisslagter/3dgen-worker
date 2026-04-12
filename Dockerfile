@@ -32,10 +32,7 @@ RUN pip install --no-cache-dir \
     timm torchdiffeq pymeshlab pytorch-lightning==1.9.5 \
     fast-simplification tqdm psutil pyyaml \
     open3d==0.18.0 configargparse
-
-# bpy (Blender) is groot en kan falen op pip install; optioneel
-RUN pip install --no-cache-dir bpy==4.0 \
-    || echo "WARN: bpy install failed, texture painting disabled"
+# bpy vermijden: alleen nodig in convert_obj_to_glb (gemockt in handler, trimesh doet de conversie)
 
 # Force CUDA arch list (geen GPU nodig tijdens build)
 ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"

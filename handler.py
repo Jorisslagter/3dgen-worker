@@ -89,6 +89,16 @@ def get_paint_pipeline():
     if _paint_pipeline is not None:
         return _paint_pipeline
 
+    # bpy (Blender) wordt alleen gebruikt in convert_obj_to_glb; die
+    # functie gebruiken we niet (we converteren zelf met trimesh).
+    # Mock bpy zodat de import van textureGenPipeline niet faalt.
+    try:
+        import bpy  # noqa: F401
+    except ImportError:
+        from unittest.mock import MagicMock
+        sys.modules["bpy"] = MagicMock()
+        print("[handler] bpy gemockt (niet geinstalleerd)")
+
     try:
         from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
     except ImportError as e:
@@ -132,20 +142,27 @@ def paint_mesh(mesh_glb_path, image, paint_prompt=None):
     # De paint pipeline accepteert een image (PIL of pad) en mesh pad
     # Het doet intern: remesh -> UV unwrap -> multiview diffusion ->
     # super-resolution -> baking -> export
+    # save_glb=False want convert_obj_to_glb vereist bpy (niet geinstalleerd).
+    # We converteren zelf met trimesh na afloop.
     paint_pipeline(
         mesh_path=mesh_glb_path,
         image_path=image,
         output_mesh_path=output_mesh_path,
         use_remesh=True,
-        save_glb=True,
+        save_glb=False,
     )
 
-    # De pipeline exporteert ook een .glb naast de .obj
-    output_glb_path = output_mesh_path.replace(".obj", ".glb")
-    if not os.path.exists(output_glb_path):
+    if not os.path.exists(output_mesh_path):
         raise FileNotFoundError(
-            f"Paint pipeline heeft geen GLB geproduceerd: {output_glb_path}"
+            f"Paint pipeline heeft geen OBJ geproduceerd: {output_mesh_path}"
         )
+
+    # OBJ -> GLB via trimesh (met materialen/textures)
+    import trimesh
+    output_glb_path = output_mesh_path.replace(".obj", ".glb")
+    textured = trimesh.load(output_mesh_path, force="mesh", process=False)
+    textured.export(output_glb_path)
+    print(f"[handler] GLB geconverteerd via trimesh: {output_glb_path}")
 
     return output_glb_path
 
