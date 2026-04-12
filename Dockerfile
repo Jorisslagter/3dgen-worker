@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
     libegl1-mesa-dev \
     libglfw3-dev \
     pybind11-dev \
+    python3-dev \
+    python3.11-dev \
+    build-essential \
     && git lfs install \
     && rm -rf /var/lib/apt/lists/*
 
@@ -61,8 +64,9 @@ RUN cd /opt/hunyuan3d/hy3dpaint/custom_rasterizer && \
 
 # Compileer mesh_inpaint_processor C++ extension (verplicht voor texture pipeline)
 RUN set -e && cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
+    which g++ && which python3-config && which python3 && \
     INCLUDES="$(python3 -m pybind11 --includes)" && \
-    SUFFIX="$(python3-config --extension-suffix)" && \
+    SUFFIX="$(python3-config --extension-suffix || echo '.so')" && \
     echo "Compiling: includes=$INCLUDES, suffix=$SUFFIX" && \
     g++ -O3 -Wall -shared -std=c++14 -fPIC \
         $INCLUDES \
