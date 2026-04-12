@@ -59,13 +59,16 @@ RUN mkdir -p /opt/hunyuan3d/hy3dpaint/ckpt && \
 RUN cd /opt/hunyuan3d/hy3dpaint/custom_rasterizer && \
     pip install --no-cache-dir -e . || echo "WARN: custom_rasterizer compile failed, texture painting disabled"
 
-# Compileer mesh_inpaint_processor C++ extension (optioneel)
-RUN cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
-    g++ -O3 -Wall -shared -std=c++11 -fPIC \
-        $(python3 -m pybind11 --includes) \
+# Compileer mesh_inpaint_processor C++ extension (verplicht voor texture pipeline)
+RUN set -e && cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
+    INCLUDES="$(python3 -m pybind11 --includes)" && \
+    SUFFIX="$(python3-config --extension-suffix)" && \
+    echo "Compiling: includes=$INCLUDES, suffix=$SUFFIX" && \
+    g++ -O3 -Wall -shared -std=c++14 -fPIC \
+        $INCLUDES \
         mesh_inpaint_processor.cpp \
-        -o mesh_inpaint_processor$(python3-config --extension-suffix) \
-    || echo "WARN: mesh_inpaint_processor compile failed"
+        -o "mesh_inpaint_processor$SUFFIX" && \
+    ls -la mesh_inpaint_processor*.so
 
 COPY handler.py /opt/handler.py
 
