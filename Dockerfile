@@ -17,10 +17,20 @@ RUN apt-get update && apt-get install -y \
     && git lfs install \
     && rm -rf /var/lib/apt/lists/*
 
-# Python dependencies: RunPod SDK, mesh tools, texture painting deps
-RUN pip install --no-cache-dir runpod trimesh fast-simplification pillow \
-    diffusers transformers accelerate huggingface-hub \
-    xatlas pybind11 scipy realesrgan basicsr
+# Python dependencies: RunPod SDK + Hunyuan3D-2.1 core deps
+RUN pip install --no-cache-dir \
+    runpod pillow \
+    einops==0.8.0 omegaconf==2.3.0 \
+    transformers==4.46.0 diffusers==0.30.0 accelerate==1.1.1 \
+    huggingface-hub==0.30.2 safetensors==0.4.4 \
+    numpy==1.24.4 scipy==1.14.1 \
+    trimesh==4.4.7 pygltflib==1.16.3 xatlas==0.0.9 \
+    opencv-python==4.10.0.84 imageio==2.36.0 scikit-image==0.24.0 \
+    rembg==2.0.65 realesrgan==0.3.0 basicsr==1.4.2 \
+    onnxruntime==1.16.3 pydantic==2.10.6 \
+    pybind11==2.13.4 ninja==1.11.1.1 \
+    timm torchdiffeq pymeshlab pytorch-lightning==1.9.5 \
+    fast-simplification tqdm psutil pyyaml
 
 # Force CUDA arch list (geen GPU nodig tijdens build)
 ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
