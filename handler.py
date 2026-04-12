@@ -99,6 +99,15 @@ def get_paint_pipeline():
         sys.modules["bpy"] = MagicMock()
         print("[handler] bpy gemockt (niet geinstalleerd)")
 
+    # torchvision_fix: basicsr/realesrgan verwachten een oude torchvision API
+    try:
+        sys.path.insert(0, "/opt/hunyuan3d")
+        from torchvision_fix import apply_fix
+        apply_fix()
+        print("[handler] torchvision_fix toegepast")
+    except Exception as e:
+        print(f"[handler] torchvision_fix niet beschikbaar: {e}")
+
     try:
         from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
     except ImportError as e:
