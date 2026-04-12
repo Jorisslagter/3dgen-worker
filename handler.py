@@ -11,9 +11,9 @@ import sys
 import time
 import tempfile
 
-# Voeg Hunyuan3D toe aan path
+# Voeg Hunyuan3D-2.1 paden toe
 sys.path.insert(0, "/opt/hunyuan3d")
-# Voeg hy3dpaint toe aan path (texture painting)
+sys.path.insert(0, "/opt/hunyuan3d/hy3dshape")
 sys.path.insert(0, "/opt/hunyuan3d/hy3dpaint")
 
 _pipeline = None
@@ -64,7 +64,7 @@ def get_pipeline():
             raise FileNotFoundError(f"Model download mislukt: {ckpt_path}")
 
     # Stap 2: Laad pipeline via from_single_file (omzeilt smart_load_model)
-    from hy3dgen.shapegen import Hunyuan3DDiTFlowMatchingPipeline
+    from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
 
     config_path = os.path.join(model_dir, "config.yaml")
     print(f"[handler] Loading from: ckpt={ckpt_path}, config={config_path}")
@@ -103,7 +103,9 @@ def get_paint_pipeline():
 
     print("[handler] Paint pipeline laden...")
     config = Hunyuan3DPaintConfig(max_num_view, resolution)
-    # Forceer CUDA (we draaien altijd op GPU in de cloud)
+    config.realesrgan_ckpt_path = "/opt/hunyuan3d/hy3dpaint/ckpt/RealESRGAN_x4plus.pth"
+    config.multiview_cfg_path = "/opt/hunyuan3d/hy3dpaint/cfgs/hunyuan-paint-pbr.yaml"
+    config.custom_pipeline = "/opt/hunyuan3d/hy3dpaint/hunyuanpaintpbr"
     config.device = "cuda"
     _paint_pipeline = Hunyuan3DPaintPipeline(config)
     print("[handler] Paint pipeline geladen op CUDA")
@@ -169,7 +171,7 @@ def handler(job):
     image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
 
     try:
-        from hy3dgen.shapegen.rembg import BackgroundRemover
+        from hy3dshape.rembg import BackgroundRemover
         rembg = BackgroundRemover()
         image = rembg(image)
     except Exception:

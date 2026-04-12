@@ -30,9 +30,15 @@ ENV FORCE_CUDA=1
 RUN pip install --no-cache-dir git+https://github.com/NVlabs/nvdiffrast.git \
     || echo "WARN: nvdiffrast install failed, texture painting disabled"
 
-# Clone Hunyuan3D (broncode + hy3dpaint)
-RUN git clone --depth 1 https://github.com/Tencent-Hunyuan/Hunyuan3D-2 /opt/hunyuan3d && \
-    cd /opt/hunyuan3d && pip install --no-cache-dir -e . || pip install --no-cache-dir -r requirements.txt || true
+# Clone Hunyuan3D-2.1 (broncode + hy3dpaint met texture painting)
+RUN git clone --depth 1 https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1 /opt/hunyuan3d && \
+    cd /opt/hunyuan3d && pip install --no-cache-dir -r requirements.txt || true
+
+# Download RealESRGAN weights (voor texture super-resolution)
+RUN mkdir -p /opt/hunyuan3d/hy3dpaint/ckpt && \
+    wget -q https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth \
+        -O /opt/hunyuan3d/hy3dpaint/ckpt/RealESRGAN_x4plus.pth \
+    || echo "WARN: RealESRGAN download failed"
 
 # Compileer custom_rasterizer CUDA extension (optioneel - als dit faalt
 # werkt alleen mesh generatie, geen texture painting)
