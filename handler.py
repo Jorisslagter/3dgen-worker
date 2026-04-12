@@ -1,17 +1,23 @@
-"""RunPod Serverless Handler voor Hunyuan3D-2.1 generatie."""
+"""RunPod Serverless Handler voor Hunyuan3D-2.1 generatie + texture painting."""
 
 import runpod
 import base64
+import gc
 import io
 import os
+import shutil
+import subprocess
 import sys
 import time
 import tempfile
 
 # Voeg Hunyuan3D toe aan path
 sys.path.insert(0, "/opt/hunyuan3d")
+# Voeg hy3dpaint toe aan path (texture painting)
+sys.path.insert(0, "/opt/hunyuan3d/hy3dpaint")
 
 _pipeline = None
+_paint_pipeline = None
 
 
 def get_pipeline():
@@ -28,22 +34,24 @@ def get_pipeline():
 
     if not os.path.exists(ckpt_path):
         print(f"[handler] Model downloaden naar {cache_dir}...")
-        import subprocess
 
         clone_dir = os.path.join(cache_dir, "tencent/Hunyuan3D-2.1")
-        if not os.path.exists(os.path.join(clone_dir, ".git")):
+        if not os.path.exists(os.path.join(clone_dir, ".git")) or not os.path.exists(ckpt_path):
             os.makedirs(cache_dir, exist_ok=True)
+            # Bij partial clone: opruimen en opnieuw beginnen
+            if os.path.exists(clone_dir) and not os.path.exists(ckpt_path):
+                shutil.rmtree(clone_dir, ignore_errors=True)
             # Sparse clone + LFS pull voor alleen het model bestand
-            subprocess.run([
-                "git", "clone", "--depth", "1", "--filter=blob:none", "--sparse",
-                "https://huggingface.co/tencent/Hunyuan3D-2.1", clone_dir
-            ], check=True)
-            subprocess.run(["git", "sparse-checkout", "set", "hunyuan3d-dit-v2-1"], cwd=clone_dir, check=True)
-            subprocess.run(["git", "lfs", "pull", "--include", "hunyuan3d-dit-v2-1/*"], cwd=clone_dir, check=True)
-
-        # Debug: toon wat er in de directory staat
-        import subprocess
-        subprocess.run(["find", clone_dir, "-type", "f", "-name", "*.ckpt", "-o", "-name", "*.yaml"], check=False)
+            try:
+                subprocess.run([
+                    "git", "clone", "--depth", "1", "--filter=blob:none", "--sparse",
+                    "https://huggingface.co/tencent/Hunyuan3D-2.1", clone_dir
+                ], check=True)
+                subprocess.run(["git", "sparse-checkout", "set", "hunyuan3d-dit-v2-1"], cwd=clone_dir, check=True)
+                subprocess.run(["git", "lfs", "pull", "--include", "hunyuan3d-dit-v2-1/*"], cwd=clone_dir, check=True)
+            except subprocess.CalledProcessError:
+                shutil.rmtree(clone_dir, ignore_errors=True)
+                raise
 
         if os.path.exists(ckpt_path):
             print(f"[handler] Model gedownload: {os.path.getsize(ckpt_path)/(1024**3):.1f} GB")
@@ -71,6 +79,64 @@ def get_pipeline():
     return _pipeline
 
 
+def get_paint_pipeline():
+    """Laad de Hunyuan3D-Paint pipeline (lazy, cached na eerste aanroep)."""
+    global _paint_pipeline
+    if _paint_pipeline is not None:
+        return _paint_pipeline
+
+    from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+
+    max_num_view = 6
+    resolution = 512
+
+    print("[handler] Paint pipeline laden...")
+    config = Hunyuan3DPaintConfig(max_num_view, resolution)
+    # Forceer CUDA (we draaien altijd op GPU in de cloud)
+    config.device = "cuda"
+    _paint_pipeline = Hunyuan3DPaintPipeline(config)
+    print("[handler] Paint pipeline geladen op CUDA")
+    return _paint_pipeline
+
+
+def paint_mesh(mesh_glb_path, image, paint_prompt=None):
+    """Draai Hunyuan3D-Paint op een gegenereerd mesh.
+
+    Args:
+        mesh_glb_path: Pad naar het witte GLB mesh
+        image: PIL Image (referentie afbeelding voor stijl)
+        paint_prompt: Optionele prompt (niet gebruikt door pipeline,
+                      maar beschikbaar voor toekomstige uitbreidingen)
+
+    Returns:
+        Pad naar het getextureerde GLB bestand
+    """
+    paint_pipeline = get_paint_pipeline()
+
+    work_dir = tempfile.mkdtemp(prefix="hy3d_paint_")
+    output_mesh_path = os.path.join(work_dir, "textured_mesh.obj")
+
+    # De paint pipeline accepteert een image (PIL of pad) en mesh pad
+    # Het doet intern: remesh -> UV unwrap -> multiview diffusion ->
+    # super-resolution -> baking -> export
+    paint_pipeline(
+        mesh_path=mesh_glb_path,
+        image_path=image,
+        output_mesh_path=output_mesh_path,
+        use_remesh=True,
+        save_glb=True,
+    )
+
+    # De pipeline exporteert ook een .glb naast de .obj
+    output_glb_path = output_mesh_path.replace(".obj", ".glb")
+    if not os.path.exists(output_glb_path):
+        raise FileNotFoundError(
+            f"Paint pipeline heeft geen GLB geproduceerd: {output_glb_path}"
+        )
+
+    return output_glb_path
+
+
 def handler(job):
     job_input = job["input"]
 
@@ -81,6 +147,8 @@ def handler(job):
     seed = job_input.get("seed", 42)
     steps = job_input.get("num_inference_steps", 25)
     octree_res = job_input.get("octree_resolution", 256)
+    do_texture = job_input.get("texture", False)
+    paint_prompt = job_input.get("paint_prompt")
 
     import torch
     import numpy as np
@@ -107,24 +175,75 @@ def handler(job):
         num_inference_steps=steps,
         octree_resolution=octree_res,
     )[0]
-    duration = time.time() - t0
+    mesh_duration = time.time() - t0
 
+    # Exporteer wit mesh als GLB
     with tempfile.NamedTemporaryFile(suffix=".glb", delete=False) as f:
-        tmp_path = f.name
-    mesh.export(tmp_path)
-    with open(tmp_path, "rb") as f:
+        white_mesh_path = f.name
+    mesh.export(white_mesh_path)
+    with open(white_mesh_path, "rb") as f:
         glb_bytes = f.read()
-    os.unlink(tmp_path)
 
     glb_b64 = base64.b64encode(glb_bytes).decode("utf-8")
 
-    return {
+    result = {
         "glb_base64": glb_b64,
         "faces": len(mesh.faces),
         "vertices": len(mesh.vertices),
-        "duration_seconds": round(duration, 1),
+        "duration_seconds": round(mesh_duration, 1),
         "seed": seed,
     }
+
+    # Optioneel: texture painting
+    if do_texture:
+        try:
+            t1 = time.time()
+
+            # Flush VRAM van shape pipeline voor paint pipeline
+            gc.collect()
+            torch.cuda.empty_cache()
+
+            # Maak een RGB referentie-afbeelding voor de paint pipeline
+            ref_image = image.copy()
+            if ref_image.mode == "RGBA":
+                white_bg = Image.new("RGB", ref_image.size, (255, 255, 255))
+                white_bg.paste(ref_image, mask=ref_image.getchannel("A"))
+                ref_image = white_bg
+            ref_image = ref_image.convert("RGB")
+
+            textured_glb_path = paint_mesh(
+                white_mesh_path, ref_image, paint_prompt
+            )
+
+            paint_duration = time.time() - t1
+
+            with open(textured_glb_path, "rb") as f:
+                textured_glb_bytes = f.read()
+
+            result["textured_glb_base64"] = base64.b64encode(
+                textured_glb_bytes
+            ).decode("utf-8")
+            result["paint_duration_seconds"] = round(paint_duration, 1)
+            result["duration_seconds"] = round(mesh_duration + paint_duration, 1)
+
+            # Cleanup texture temp bestanden
+            try:
+                shutil.rmtree(os.path.dirname(textured_glb_path), ignore_errors=True)
+            except Exception:
+                pass
+
+        except Exception as e:
+            # Texture painting faalde, maar wit mesh is wel beschikbaar
+            result["texture_error"] = str(e)
+            print(f"[handler] Texture painting mislukt: {e}")
+
+    # Cleanup wit mesh temp bestand
+    try:
+        os.unlink(white_mesh_path)
+    except Exception:
+        pass
+
+    return result
 
 
 runpod.serverless.start({"handler": handler})
