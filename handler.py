@@ -80,12 +80,23 @@ def get_pipeline():
 
 
 def get_paint_pipeline():
-    """Laad de Hunyuan3D-Paint pipeline (lazy, cached na eerste aanroep)."""
+    """Laad de Hunyuan3D-Paint pipeline (lazy, cached na eerste aanroep).
+
+    Raises ImportError als texture dependencies niet beschikbaar zijn
+    (bijv. nvdiffrast compile faalde tijdens build).
+    """
     global _paint_pipeline
     if _paint_pipeline is not None:
         return _paint_pipeline
 
-    from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+    try:
+        from textureGenPipeline import Hunyuan3DPaintPipeline, Hunyuan3DPaintConfig
+    except ImportError as e:
+        raise ImportError(
+            f"Texture painting niet beschikbaar: {e}. "
+            "Dit betekent dat nvdiffrast of custom_rasterizer niet "
+            "succesvol is gecompileerd tijdens de image build."
+        ) from e
 
     max_num_view = 6
     resolution = 512

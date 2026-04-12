@@ -26,23 +26,26 @@ RUN pip install --no-cache-dir runpod trimesh fast-simplification pillow \
 ENV TORCH_CUDA_ARCH_LIST="7.5;8.0;8.6;8.9;9.0"
 ENV FORCE_CUDA=1
 
-# nvdiffrast (NVIDIA differentiable rasterizer)
-RUN pip install --no-cache-dir git+https://github.com/NVlabs/nvdiffrast.git
+# nvdiffrast (NVIDIA differentiable rasterizer, optioneel voor texture)
+RUN pip install --no-cache-dir git+https://github.com/NVlabs/nvdiffrast.git \
+    || echo "WARN: nvdiffrast install failed, texture painting disabled"
 
 # Clone Hunyuan3D (broncode + hy3dpaint)
 RUN git clone --depth 1 https://github.com/Tencent-Hunyuan/Hunyuan3D-2 /opt/hunyuan3d && \
     cd /opt/hunyuan3d && pip install --no-cache-dir -e . || pip install --no-cache-dir -r requirements.txt || true
 
-# Compileer custom_rasterizer CUDA extension
+# Compileer custom_rasterizer CUDA extension (optioneel - als dit faalt
+# werkt alleen mesh generatie, geen texture painting)
 RUN cd /opt/hunyuan3d/hy3dpaint/custom_rasterizer && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir -e . || echo "WARN: custom_rasterizer compile failed, texture painting disabled"
 
-# Compileer mesh_inpaint_processor C++ extension
+# Compileer mesh_inpaint_processor C++ extension (optioneel)
 RUN cd /opt/hunyuan3d/hy3dpaint/DifferentiableRenderer && \
     g++ -O3 -Wall -shared -std=c++11 -fPIC \
         $(python3 -m pybind11 --includes) \
         mesh_inpaint_processor.cpp \
-        -o mesh_inpaint_processor$(python3-config --extension-suffix)
+        -o mesh_inpaint_processor$(python3-config --extension-suffix) \
+    || echo "WARN: mesh_inpaint_processor compile failed"
 
 COPY handler.py /opt/handler.py
 
